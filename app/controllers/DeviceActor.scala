@@ -10,7 +10,6 @@ import play.api.libs.json._
 object Device {
   implicit val deviceFormat = Json.format[Device]
 }
-
 case class Device(id: Int, description: String, value: Int)
 
 case class ConnectDevice(device: Device, connection: ActorRef)
@@ -26,11 +25,14 @@ object DeviceWsActor {
 
 class DeviceWsActor(out: ActorRef, supervisor: ActorRef) extends Actor {
   def receive = {
-    case msg: JsValue => {
-      val msg2 = Json.fromJson[Device](msg)
-      msg2 match {
-        case s: JsSuccess[Device] => supervisor ! ConnectDevice(s.get, out)
-        case e: JsError => Logger.error("Bad formatted message : " + msg)
+    case msg: JsObject => {
+      if (!msg.keys.isEmpty) {
+        Json.fromJson[Device](msg) match {
+          case s: JsSuccess[Device] => supervisor ! ConnectDevice(s.get, out)
+          case e: JsError => Logger.error("Bad formatted message : " + msg)
+        }
+      } else {
+        Logger.debug("Receive heartbeat")
       }
     }
   }
