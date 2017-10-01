@@ -20,9 +20,17 @@ class HomeController @Inject()(cc: ControllerComponents) (implicit system: Actor
     Ok(views.html.index())
   }
 
-  def devices() = WebSocket.accept[JsValue, JsValue] { request =>
+  implicit val mftDevice = MessageFlowTransformer.jsonMessageFlowTransformer[JsValue, DeviceValue]
+  def devices() = WebSocket.accept[JsValue, DeviceValue] { request =>
     ActorFlow.actorRef { out =>
       DeviceWsActor.props(out, deviceSupervisorActor)
+    }
+  }
+
+  implicit val mftUi = MessageFlowTransformer.jsonMessageFlowTransformer[Message[Any], Message[Any]]
+  def ui() = WebSocket.accept[Message[Any], Message[Any]] { request =>
+    ActorFlow.actorRef { out =>
+      UIWsActor.props(out, deviceSupervisorActor)
     }
   }
 

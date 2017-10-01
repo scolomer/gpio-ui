@@ -6,6 +6,7 @@
 # An example controller showing a sample home page
 GET     /                           controllers.HomeController.index
 GET    /ws/devices                  controllers.HomeController.devices
+GET    /ws/ui                       controllers.HomeController.ui
 GET    /rest/device/:id             controllers.HomeController.setValue(id: Int, value: Int)
 # POST   /rest/device/:id             controllers.HomeController.setValue(id: Int)
 

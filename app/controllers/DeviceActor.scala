@@ -1,8 +1,15 @@
 package actors
 
 import akka.actor._
+import akka.pattern.ask
 import play.api.Logger
 import play.api.libs.json._
+import akka.util.Timeout
+import scala.concurrent.duration._
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.{Success, Failure}
+
 
 // {"id":12,"description":"Cuisine d'été","value":0}
 // http://localhost:9000/rest/device/12?value=1
@@ -14,10 +21,43 @@ case class Device(id: Int, description: String, value: Int)
 
 case class ConnectDevice(device: Device, connection: ActorRef)
 
+case class RegisterUI()
+
+case class DeviceDescr()
+
+case class Ping()
+case class Pong()
+
 object DeviceValue {
   implicit val deviceValue = Json.format[DeviceValue]
 }
 case class DeviceValue(id: Int, value: Int)
+
+case class Message[+A](id: String, payload: A)
+object Message {
+  implicit val write = new Writes[Message[Any]] {
+    def writes(msg: Message[Any]) = {
+      Logger.debug(s"Write : $msg")
+      Json.obj(
+        "id" -> msg.id,
+        "payload" -> (msg.payload match {
+          case a: Seq[Device] => Json.toJson(a)
+          case b: Device => Json.toJson(b)
+          case _ => throw new Exception("Unsupported type")
+        }))
+    }
+  }
+
+  implicit val read = new Reads[Message[Any]] {
+    def reads(json: JsValue): JsResult[Message[Any]] = {
+      Logger.debug(s"Read : $json")
+      JsSuccess((json \ "id").as[String] match {
+        case "value" => Message("value", DeviceValue((json \ "payload" \ "id").as[Int], (json \ "payload" \ "value").as[Int]))
+        case "ping" => Message("ping", Ping())
+      })
+    }
+  }
+}
 
 object DeviceWsActor {
   def props(out: ActorRef, supervisor: ActorRef) = Props(new DeviceWsActor(out, supervisor))
@@ -43,23 +83,56 @@ object DeviceSupervisor {
 }
 
 class DeviceSupervisor extends Actor {
+
+  implicit val timeout = Timeout(2.seconds)
+
   val devices = collection.mutable.Map[Int, ActorRef]()
+  var ui = context.actorOf(DeadLetterActor.props)
 
   def receive = {
     case m: ConnectDevice => {
       devices.get(m.device.id) match {
-        case Some(a) => a ! m
+        case Some(a) => {
+          a ! m
+          ui ! Message("update", m.device)
+        }
         case None => {
           val a = context.actorOf(DeviceActor.props(m.device.id))
           devices += (m.device.id -> a)
           a ! m
+          ui ! Message("add", m.device)
         }
       }
     }
     case m: DeviceValue => {
-      devices.get(m.id).foreach { a =>
-        a ! m
+      Logger.debug(s"DeviceValue $m")
+      devices.get(m.id) match {
+        case Some(a) => {
+          a ! m
+        //  ui ! Message("update", m.device)
+        }
+        case None => {
+          Logger.warn(s"Device $m.device.id not found")
+        }
       }
+    }
+    case m: RegisterUI => {
+      ui = sender
+      val s = sender
+      val f = Future.sequence(devices.values.map(a => a ask DeviceDescr()))
+
+      f onComplete {
+        case Success(a) => {
+          Logger.debug(a.toString)
+          s ! Message("init", a)
+        }
+        case Failure(t) => Logger.error(t.getMessage, t)
+      }
+
+    }
+    case m: Message[Any] => {
+      Logger.debug(s"Message : $m")
+      self ! m.payload
     }
     case _ => Logger.info("Unknown message")
   }
@@ -80,7 +153,7 @@ class DeviceActor(val id: Integer) extends Actor {
 
         if (a.value == -1 && device.value != -1) {
           Logger.info(s"Sendind state ${device.value} to device $id")
-          b ! Json.toJson(DeviceValue(id, device.value))
+          b ! DeviceValue(id, device.value)
         }
 
         device = a
@@ -88,8 +161,9 @@ class DeviceActor(val id: Integer) extends Actor {
     }
     case v: DeviceValue => {
       Logger.info(s"Sendind state ${v.value} to device $id")
-      connection ! Json.toJson(v)
+      connection ! v
     }
+    case DeviceDescr() => sender ! device
   }
 }
 
