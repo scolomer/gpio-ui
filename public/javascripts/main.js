@@ -19,7 +19,7 @@ var app = new Vue({
   }
 })
 
-var prefix = 'ws://'+location.hostname+(location.port ? ':'+location.port: '');
+var prefix = location.protocol.replace("http", "ws") + '//'+location.hostname+(location.port ? ':'+location.port: '');
 console.log(prefix)
 var ws = new WebSocket(prefix + "/ws/ui");
 setInterval(() => {
