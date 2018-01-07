@@ -38,8 +38,13 @@ ws.onmessage = a => {
       d = m.payload
       app.devices.push(d)
     } else {
-      d.description = m.payload.description
-      d.value = m.payload.value
+      if (m.payload.description != undefined) {
+        d.description = m.payload.description
+      }
+
+      if (m.payload.value != undefined) {
+        d.value = m.payload.value
+      }
     }
 
   } else {

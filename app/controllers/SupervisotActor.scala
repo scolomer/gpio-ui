@@ -41,7 +41,7 @@ class DeviceSupervisor extends Actor {
       devices.get(m.id) match {
         case Some(a) => {
           a ! m
-        //  ui ! Message("update", m.device)
+          uis.filter(_ != sender).foreach {_ ! Message("update", m)}
         }
         case None => {
           Logger.warn(s"Device $m.device.id not found")
@@ -74,8 +74,8 @@ class DeviceSupervisor extends Actor {
       self ! m.payload
     }
 
-    case Ping => {}
+    case Ping() => {}
 
-    case a: Any => Logger.info(s"Unknown message : $a")
+    case a: Any => Logger.warn(s"Unknown message : $a")
   }
 }

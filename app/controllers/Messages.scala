@@ -34,8 +34,9 @@ object Message {
         "id" -> msg.id,
         "payload" -> (msg.payload match {
           case a: Seq[Device] => Json.toJson(a)
-          case b: Device => Json.toJson(b)
-          case _ => throw new Exception("Unsupported type")
+          case a: Device => Json.toJson(a)
+          case a: DeviceValue => Json.toJson(a)
+          case _ => throw new Exception(s"Unsupported type : $msg.payload")
         }))
     }
   }
