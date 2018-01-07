@@ -13,6 +13,7 @@ case class Device(id: Int, description: String, value: Int)
 case class ConnectDevice(device: Device, connection: ActorRef)
 
 case class RegisterUI()
+case class UnRegisterUI()
 
 case class DeviceDescr()
 

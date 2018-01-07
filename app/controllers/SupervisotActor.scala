@@ -19,20 +19,20 @@ class DeviceSupervisor extends Actor {
   implicit val timeout = Timeout(2.seconds)
 
   val devices = collection.mutable.Map[Int, ActorRef]()
-  var ui = context.actorOf(DeadLetterActor.props)
+  val uis = scala.collection.mutable.ListBuffer.empty[ActorRef]
 
   def receive = {
     case m: ConnectDevice => {
       devices.get(m.device.id) match {
         case Some(a) => {
           a ! m
-          ui ! Message("update", m.device)
+          uis.foreach { _ ! Message("update", m.device) }
         }
         case None => {
           val a = context.actorOf(DeviceActor.props(m.device.id))
           devices += (m.device.id -> a)
           a ! m
-          ui ! Message("add", m.device)
+          uis.foreach {_ ! Message("add", m.device) }
         }
       }
     }
@@ -48,8 +48,7 @@ class DeviceSupervisor extends Actor {
         }
       }
     }
-    case m: RegisterUI => {
-      ui = sender
+    case RegisterUI() => {
       val s = sender
       val f = Future.sequence(devices.values.map(a => a ask DeviceDescr()))
 
@@ -57,15 +56,26 @@ class DeviceSupervisor extends Actor {
         case Success(a) => {
           Logger.debug(a.toString)
           s ! Message("init", a)
+          uis += s
+          Logger.debug(s"uis : $uis")
         }
         case Failure(t) => Logger.error(t.getMessage, t)
       }
 
     }
+
+    case UnRegisterUI() => {
+      uis -= sender
+      Logger.debug(s"uis : $uis")
+    }
+
     case m: Message[Any] => {
       Logger.debug(s"Message : $m")
       self ! m.payload
     }
-    case _ => Logger.info("Unknown message")
+
+    case Ping => {}
+
+    case a: Any => Logger.info(s"Unknown message : $a")
   }
 }
