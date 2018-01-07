@@ -162,6 +162,7 @@ class DeviceActor(val id: Integer) extends Actor {
     case v: DeviceValue => {
       Logger.info(s"Sendind state ${v.value} to device $id")
       connection ! v
+      device = device.copy(value = v.value)
     }
     case DeviceDescr() => sender ! device
   }
