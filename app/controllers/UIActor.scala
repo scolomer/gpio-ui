@@ -28,4 +28,8 @@ class UIWsActor(out: ActorRef, supervisor: ActorRef) extends Actor {
       }
     }
   }
+
+  override def postStop = {
+    Logger.debug("Poststop")
+  }
 }
