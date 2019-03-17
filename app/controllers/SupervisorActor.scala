@@ -9,6 +9,7 @@ import akka.actor._
 import akka.pattern.ask
 import akka.util.Timeout
 
+import collection.mutable.{ HashMap, MultiMap, Set, Map, ListBuffer }
 
 object DeviceSupervisor {
   def props = Props(new DeviceSupervisor())
@@ -18,18 +19,23 @@ class DeviceSupervisor extends Actor with Logging {
 
   implicit val timeout = Timeout(2.seconds)
 
-  val devices = collection.mutable.Map[Int, ActorRef]()
-  val uis = scala.collection.mutable.ListBuffer.empty[ActorRef]
+  val devices = Map[Int, ActorRef]()
+  val devicesWs = new HashMap[ActorRef, Set[ActorRef]] with MultiMap[ActorRef, ActorRef]
+  val uis = ListBuffer.empty[ActorRef]
 
   def receive = {
     case m: ConnectDevice => {
+
+
       devices.get(m.device.id) match {
         case Some(a) => {
           a ! m
           uis.foreach { _ ! Message("update", m.device) }
         }
         case None => {
+          context.watch(sender)
           val a = context.actorOf(DeviceActor.props(m.device.id))
+          devicesWs.addBinding(sender, a)
           devices += (m.device.id -> a)
           a ! m
           uis.foreach {_ ! Message("add", m.device) }
@@ -75,6 +81,10 @@ class DeviceSupervisor extends Actor with Logging {
     }
 
     case Ping() => {}
+
+    case t: Terminated => {
+      devicesWs.get(t.actor).getOrElse(Set()).foreach(a => a ! PoisonPill)
+    }
 
     case a: Any => logger.warn(s"Unknown message : $a")
   }

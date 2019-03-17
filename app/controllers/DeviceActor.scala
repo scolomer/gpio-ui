@@ -20,7 +20,7 @@ class DeviceActor(val id: Integer) extends Actor with Logging {
 
   def receive = {
     case ConnectDevice(a,b) => {
-        logger.info(s"Actor connected with device $id")
+        logger.info(s"Device $id connected")
 
         if (a.value == -1 && device.value != -1) {
           logger.info(s"Sendind state ${device.value} to device $id")
@@ -37,6 +37,11 @@ class DeviceActor(val id: Integer) extends Actor with Logging {
     }
     case DeviceDescr() => sender ! device
   }
+
+  override def postStop { 
+    logger.info(s"Device $id disconnected")
+  }
+
 }
 
 object DeadLetterActor {
