@@ -1,7 +1,7 @@
 package actors
 
 import akka.actor._
-import play.api.Logger
+import play.api.Logging
 
 
 // {"id":12,"description":"Cuisine d'été","value":0}
@@ -13,17 +13,17 @@ object DeviceActor {
   def props(id: Int) = Props(new DeviceActor(id))
 }
 
-class DeviceActor(val id: Integer) extends Actor {
+class DeviceActor(val id: Integer) extends Actor with Logging {
   var device = Device(id, "Unknown", -1)
   var connection = context.actorOf(DeadLetterActor.props)
-  Logger.info(s"Actor created for device $id")
+  logger.info(s"Actor created for device $id")
 
   def receive = {
     case ConnectDevice(a,b) => {
-        Logger.info(s"Actor connected with device $id")
+        logger.info(s"Actor connected with device $id")
 
         if (a.value == -1 && device.value != -1) {
-          Logger.info(s"Sendind state ${device.value} to device $id")
+          logger.info(s"Sendind state ${device.value} to device $id")
           b ! DeviceValue(id, device.value)
         }
 
@@ -31,7 +31,7 @@ class DeviceActor(val id: Integer) extends Actor {
         connection = b
     }
     case v: DeviceValue => {
-      Logger.info(s"Sendind state ${v.value} to device $id")
+      logger.info(s"Sendind state ${v.value} to device $id")
       connection ! v
       device = device.copy(value = v.value)
     }
@@ -43,8 +43,8 @@ object DeadLetterActor {
   def props = Props(new DeadLetterActor())
 }
 
-class DeadLetterActor extends Actor {
+class DeadLetterActor extends Actor with Logging {
   def receive = {
-    case msg: Any => Logger.warn("Message sent to dead letter : " + msg)
+    case msg: Any => logger.warn("Message sent to dead letter : " + msg)
   }
 }

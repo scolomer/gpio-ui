@@ -4,7 +4,7 @@ import scala.concurrent.duration._
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Success, Failure}
-import play.api.Logger
+import play.api.Logging
 import akka.actor._
 import akka.pattern.ask
 import akka.util.Timeout
@@ -14,7 +14,7 @@ object DeviceSupervisor {
   def props = Props(new DeviceSupervisor())
 }
 
-class DeviceSupervisor extends Actor {
+class DeviceSupervisor extends Actor with Logging {
 
   implicit val timeout = Timeout(2.seconds)
 
@@ -37,14 +37,14 @@ class DeviceSupervisor extends Actor {
       }
     }
     case m: DeviceValue => {
-      Logger.debug(s"DeviceValue $m")
+      logger.debug(s"DeviceValue $m")
       devices.get(m.id) match {
         case Some(a) => {
           a ! m
           uis.filter(_ != sender).foreach {_ ! Message("update", m)}
         }
         case None => {
-          Logger.warn(s"Device $m.device.id not found")
+          logger.warn(s"Device $m.device.id not found")
         }
       }
     }
@@ -54,28 +54,28 @@ class DeviceSupervisor extends Actor {
 
       f onComplete {
         case Success(a) => {
-          Logger.debug(a.toString)
+          logger.debug(a.toString)
           s ! Message("init", a)
           uis += s
-          Logger.debug(s"uis : $uis")
+          logger.debug(s"uis : $uis")
         }
-        case Failure(t) => Logger.error(t.getMessage, t)
+        case Failure(t) => logger.error(t.getMessage, t)
       }
 
     }
 
     case UnRegisterUI() => {
       uis -= sender
-      Logger.debug(s"uis : $uis")
+      logger.debug(s"uis : $uis")
     }
 
     case m: Message[Any] => {
-      Logger.debug(s"Message : $m")
+      logger.debug(s"Message : $m")
       self ! m.payload
     }
 
     case Ping() => {}
 
-    case a: Any => Logger.warn(s"Unknown message : $a")
+    case a: Any => logger.warn(s"Unknown message : $a")
   }
 }
