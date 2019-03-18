@@ -83,7 +83,11 @@ class DeviceSupervisor extends Actor with Logging {
     case Ping() => {}
 
     case t: Terminated => {
-      devicesWs.get(t.actor).getOrElse(Set()).foreach(a => a ! PoisonPill)
+      val dacts = devicesWs.get(t.actor).getOrElse(Set())
+      dacts.foreach(a => a ! PoisonPill)
+      devicesWs -= t.actor
+
+      devices --= devices.filter(a => dacts.contains(a._2)).map(_._1)
     }
 
     case a: Any => logger.warn(s"Unknown message : $a")
