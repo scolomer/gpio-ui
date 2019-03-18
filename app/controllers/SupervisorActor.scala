@@ -55,6 +55,7 @@ class DeviceSupervisor extends Actor with Logging {
       }
     }
     case RegisterUI() => {
+      logger.info(s"UI connected : $sender")
       val s = sender
       val f = Future.sequence(devices.values.map(a => a ask DeviceDescr()))
 
@@ -71,6 +72,7 @@ class DeviceSupervisor extends Actor with Logging {
     }
 
     case UnRegisterUI() => {
+      logger.info(s"UI disconnected : $sender")
       uis -= sender
       logger.debug(s"uis : $uis")
     }
